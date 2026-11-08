@@ -1,0 +1,36 @@
+[project]
+name = "portfolio-chatbot"
+version = "0.1.0"
+description = "Portfolio chatbot backend: RAG over Abesh's portfolio with LangGraph + NeMo Guardrails."
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.33",
+    "langgraph>=0.2.60",
+    "langchain-openai>=0.3",
+    "langchain-core>=0.3",
+    "langchain-text-splitters>=0.3",
+    "nemoguardrails>=0.10",
+    "sqlite-vec>=0.1.6",
+    "pydantic-settings>=2.6",
+    "python-dotenv>=1.0",
+    "httpx>=0.27",
+    "slowapi>=0.1.9",
+    "pypdf>=5.0",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.3",
+    "pytest-asyncio>=0.24",
+    "ruff>=0.8",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
