@@ -1,3 +1,4 @@
+import logging
 
 from langchain_openai import ChatOpenAI
 
@@ -5,26 +6,36 @@ from app.config import settings
 from app.graph.prompts import SYSTEM_PROMPT
 from app.graph.state import ChatState
 from app.rag.retriever import retrieve
+from app.safety import check_input, check_output
+from app.voice import REFUSAL, SECRET_REFUSAL
+
+log = logging.getLogger(__name__)
 
 
 def _llm() -> ChatOpenAI:
     return ChatOpenAI(
         model=settings.chat_model,
-        api_key=__import__("pydantic").SecretStr(settings.openrouter_api_key),
+        api_key=settings.openrouter_api_key,
         base_url=settings.openrouter_base_url,
         temperature=0.3,
+        timeout=settings.llm_timeout,
+        max_retries=2,
+        max_tokens=settings.max_tokens,
+        default_headers={
+            "HTTP-Referer": settings.app_url,
+            "X-Title": settings.app_title,
+        },
     )
 
 
-def guardrails_in(state: ChatState) -> ChatState:
-    text = state["user_input"].lower()
-    banned = ["ignore previous", "system prompt", "jailbreak", "dan mode", "bypass"]
-    if any(b in text for b in banned):
-        state["blocked"] = True
-        state["block_reason"] = "prompt-injection"
-        state["reply"] = "I can't engage with that request. I'm here to discuss Abesh's work and portfolio."
-        return state
-    state["blocked"] = False
+def check_input_node(state: ChatState) -> ChatState:
+    verdict = check_input(state["user_input"])
+    state["blocked"] = not verdict.allowed
+    if verdict.allowed:
+        state["block_reason"] = ""
+    else:
+        state["block_reason"] = verdict.reason
+        state["reply"] = REFUSAL
     return state
 
 
@@ -38,24 +49,34 @@ def retrieve_node(state: ChatState) -> ChatState:
 def generate_node(state: ChatState) -> ChatState:
     if state.get("blocked"):
         return state
-    ctx = "\n\n".join(c["content"] for c in state.get("retrieved", []))
-    msgs = [
+
+    context = "\n\n".join(chunk["content"] for chunk in state.get("retrieved", []))
+    messages = [
         ("system", SYSTEM_PROMPT),
-        ("system", f"Context:\n{ctx}" if ctx else "Context: (none)"),
+        ("system", f"Context:\n{context}" if context else "Context: (none)"),
         ("human", state["user_input"]),
     ]
-    resp = _llm().invoke(msgs)
-    state["reply"] = str(resp.content)
+    response = _llm().invoke(messages)
+    state["reply"] = str(response.content or "")
+
+    usage = getattr(response, "usage_metadata", None)
+    if usage:
+        log.info(
+            "llm usage: prompt=%s completion=%s total=%s",
+            usage.get("input_tokens"),
+            usage.get("output_tokens"),
+            usage.get("total_tokens"),
+        )
     return state
 
 
-def guardrails_out(state: ChatState) -> ChatState:
+def check_output_node(state: ChatState) -> ChatState:
     if state.get("blocked"):
         return state
-    # Basic safety: ensure no secret-like tokens
-    reply = state["reply"]
-    if "sk-" in reply or "api_key" in reply.lower():
-        state["reply"] = "I can't share that."
+
+    verdict = check_output(state["reply"])
+    if not verdict.allowed:
         state["blocked"] = True
-        state["block_reason"] = "secret-leak"
+        state["block_reason"] = verdict.reason
+        state["reply"] = SECRET_REFUSAL
     return state
