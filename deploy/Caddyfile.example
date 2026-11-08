@@ -1,0 +1,10 @@
+# Example Caddyfile for the VPS. Caddy obtains TLS automatically.
+# Runs on the host; the container publishes 127.0.0.1:8000 only.
+#
+# Replace the domain, then: sudo caddy run --config deploy/Caddyfile
+# Uvicorn already trusts X-Forwarded-For from loopback (FORWARDED_ALLOW_IPS).
+
+api.abesh.site {
+	encode
+	reverse_proxy 127.0.0.1:8000
+}
