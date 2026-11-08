@@ -1,9 +1,19 @@
 services:
   chatbot:
     build: .
+    init: true
+    env_file:
+      - path: .env
+        required: false
+    # Loopback only: Caddy, Cloudflare Tunnel, or the Worker proxy reaches it.
     ports:
-      - "8000:8000"
-    env_file: .env
+      - "127.0.0.1:8000:8000"
     volumes:
-      - ./data:/app/data
+      # Named volume: Docker initialises it with the image's /app/data owner,
+      # which a host bind mount would not.
+      - chatbot-data:/app/data
+      - ./docs:/app/docs:ro
     restart: unless-stopped
+
+volumes:
+  chatbot-data:
