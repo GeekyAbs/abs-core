@@ -29,3 +29,6 @@ build/
 
 # Logs
 *.log
+# Personal knowledge (do not commit)
+docs/knowledge.md
+docs/knowledge.txt
