@@ -1,4 +1,31 @@
+# Python
 __pycache__/
-*.pyc
+*.py[cod]
+*.pyo
+*.egg-info/
+.venv/
+venv/
+
+# Caches
+.ruff_cache/
+.pytest_cache/
+.mypy_cache/
+.cache/
+
+# Secrets / env
 .env
+.env.*
+!.env.example
+
+# Data / runtime
 data/
+*.db
+*.sqlite
+*.sqlite3
+
+# Build artifacts
+dist/
+build/
+
+# Logs
+*.log
